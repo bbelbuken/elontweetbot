@@ -1,6 +1,8 @@
 
 # Folder
 backend
+.kiro
+.kiro/
 
 # Environment variables
 .env
