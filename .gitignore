@@ -3,6 +3,7 @@
 backend
 .kiro
 .kiro/
+.kiro/*
 
 # Environment variables
 .env
