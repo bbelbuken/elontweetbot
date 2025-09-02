@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-    # PostgreSQL Database
+    #  PostgreSQL Database
     postgres:
         image: postgres:15-alpine
         container_name: trading-bot-postgres
@@ -34,164 +32,164 @@ services:
             timeout: 5s
             retries: 5
 
-    # FastAPI Backend
-    backend:
-        build:
-            context: ./backend
-            dockerfile: Dockerfile
-        container_name: trading-bot-backend
-        ports:
-            - '8000:8000'
-        environment:
-            - ENVIRONMENT=development
-            - DEBUG=true
-            - DB_HOST=postgres
-            - DB_PORT=5432
-            - DB_NAME=trading_bot
-            - DB_USER=postgres
-            - DB_PASSWORD=postgres
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-        env_file:
-            - .env
-        volumes:
-            - ./backend:/app
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-        command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-        healthcheck:
-            test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
-            interval: 30s
-            timeout: 10s
-            retries: 3
+    # # FastAPI Backend
+    # backend:
+    #     build:
+    #         context: ./backend
+    #         dockerfile: Dockerfile
+    #     container_name: trading-bot-backend
+    #     ports:
+    #         - '8000:8000'
+    #     environment:
+    #         - ENVIRONMENT=development
+    #         - DEBUG=true
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=trading_bot
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=postgres
+    #         - REDIS_HOST=redis
+    #         - REDIS_PORT=6379
+    #     env_file:
+    #         - .env
+    #     volumes:
+    #         - ./backend:/app
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #         redis:
+    #             condition: service_healthy
+    #     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    #     healthcheck:
+    #         test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+    #         interval: 30s
+    #         timeout: 10s
+    #         retries: 3
 
-    # Celery Worker for Tweet Ingestion
-    tweet-worker:
-        build:
-            context: ./backend
-            dockerfile: Dockerfile
-        container_name: trading-bot-tweet-worker
-        environment:
-            - ENVIRONMENT=development
-            - DEBUG=true
-            - DB_HOST=postgres
-            - DB_PORT=5432
-            - DB_NAME=trading_bot
-            - DB_USER=postgres
-            - DB_PASSWORD=postgres
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-        env_file:
-            - .env
-        volumes:
-            - ./backend:/app
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-        command: celery -A workers.tweet_ingestion worker --loglevel=info --queues=tweets
+    # # Celery Worker for Tweet Ingestion
+    # tweet-worker:
+    #     build:
+    #         context: ./backend
+    #         dockerfile: Dockerfile
+    #     container_name: trading-bot-tweet-worker
+    #     environment:
+    #         - ENVIRONMENT=development
+    #         - DEBUG=true
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=trading_bot
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=postgres
+    #         - REDIS_HOST=redis
+    #         - REDIS_PORT=6379
+    #     env_file:
+    #         - .env
+    #     volumes:
+    #         - ./backend:/app
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #         redis:
+    #             condition: service_healthy
+    #     command: celery -A workers.tweet_ingestion worker --loglevel=info --queues=tweets
 
-    # Celery Worker for NLP Processing
-    nlp-worker:
-        build:
-            context: ./backend
-            dockerfile: Dockerfile
-        container_name: trading-bot-nlp-worker
-        environment:
-            - ENVIRONMENT=development
-            - DEBUG=true
-            - DB_HOST=postgres
-            - DB_PORT=5432
-            - DB_NAME=trading_bot
-            - DB_USER=postgres
-            - DB_PASSWORD=postgres
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-        env_file:
-            - .env
-        volumes:
-            - ./backend:/app
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-        command: celery -A workers.nlp_processor worker --loglevel=info --queues=nlp
+    # # Celery Worker for NLP Processing
+    # nlp-worker:
+    #     build:
+    #         context: ./backend
+    #         dockerfile: Dockerfile
+    #     container_name: trading-bot-nlp-worker
+    #     environment:
+    #         - ENVIRONMENT=development
+    #         - DEBUG=true
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=trading_bot
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=postgres
+    #         - REDIS_HOST=redis
+    #         - REDIS_PORT=6379
+    #     env_file:
+    #         - .env
+    #     volumes:
+    #         - ./backend:/app
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #         redis:
+    #             condition: service_healthy
+    #     command: celery -A workers.nlp_processor worker --loglevel=info --queues=nlp
 
-    # Celery Worker for Trade Execution
-    trade-worker:
-        build:
-            context: ./backend
-            dockerfile: Dockerfile
-        container_name: trading-bot-trade-worker
-        environment:
-            - ENVIRONMENT=development
-            - DEBUG=true
-            - DB_HOST=postgres
-            - DB_PORT=5432
-            - DB_NAME=trading_bot
-            - DB_USER=postgres
-            - DB_PASSWORD=postgres
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-        env_file:
-            - .env
-        volumes:
-            - ./backend:/app
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-        command: celery -A workers.trade_executor worker --loglevel=info --queues=trades
+    # # Celery Worker for Trade Execution
+    # trade-worker:
+    #     build:
+    #         context: ./backend
+    #         dockerfile: Dockerfile
+    #     container_name: trading-bot-trade-worker
+    #     environment:
+    #         - ENVIRONMENT=development
+    #         - DEBUG=true
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=trading_bot
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=postgres
+    #         - REDIS_HOST=redis
+    #         - REDIS_PORT=6379
+    #     env_file:
+    #         - .env
+    #     volumes:
+    #         - ./backend:/app
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #         redis:
+    #             condition: service_healthy
+    #     command: celery -A workers.trade_executor worker --loglevel=info --queues=trades
 
-    # Celery Beat Scheduler
-    celery-beat:
-        build:
-            context: ./backend
-            dockerfile: Dockerfile
-        container_name: trading-bot-celery-beat
-        environment:
-            - ENVIRONMENT=development
-            - DEBUG=true
-            - DB_HOST=postgres
-            - DB_PORT=5432
-            - DB_NAME=trading_bot
-            - DB_USER=postgres
-            - DB_PASSWORD=postgres
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-        env_file:
-            - .env
-        volumes:
-            - ./backend:/app
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-        command: celery -A workers.tweet_ingestion beat --loglevel=info
+    # # Celery Beat Scheduler
+    # celery-beat:
+    #     build:
+    #         context: ./backend
+    #         dockerfile: Dockerfile
+    #     container_name: trading-bot-celery-beat
+    #     environment:
+    #         - ENVIRONMENT=development
+    #         - DEBUG=true
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=trading_bot
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=postgres
+    #         - REDIS_HOST=redis
+    #         - REDIS_PORT=6379
+    #     env_file:
+    #         - .env
+    #     volumes:
+    #         - ./backend:/app
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #         redis:
+    #             condition: service_healthy
+    #     command: celery -A workers.tweet_ingestion beat --loglevel=info
 
-    # Next.js Frontend
-    frontend:
-        build:
-            context: ./frontend
-            dockerfile: Dockerfile
-        container_name: trading-bot-frontend
-        ports:
-            - '3000:3000'
-        environment:
-            - NEXT_PUBLIC_API_URL=http://localhost:8000
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules
-        depends_on:
-            - backend
-        command: npm run dev
+    # # Next.js Frontend
+    # frontend:
+    #     build:
+    #         context: ./frontend
+    #         dockerfile: Dockerfile
+    #     container_name: trading-bot-frontend
+    #     ports:
+    #         - '3000:3000'
+    #     environment:
+    #         - NEXT_PUBLIC_API_URL=http://localhost:8000
+    #     volumes:
+    #         - ./frontend:/app
+    #         - /app/node_modules
+    #     depends_on:
+    #         - backend
+    #     command: npm run dev
 
     # Prometheus for metrics collection
     prometheus:
@@ -200,7 +198,7 @@ services:
         ports:
             - '9090:9090'
         volumes:
-            - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+            - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
             - prometheus_data:/prometheus
         command:
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -220,6 +218,31 @@ services:
             - grafana_data:/var/lib/grafana
             - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
             - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+        depends_on:
+            - loki
+
+    loki:
+        image: grafana/loki:2.9.2
+        container_name: trading-bot-loki
+        ports:
+            - '3100:3100'
+        command:
+            - -config.file=/etc/loki/local-config.yaml
+
+    # Promtail for log shipping
+    promtail:
+        image: grafana/promtail:2.9.2
+        container_name: trading-bot-promtail
+        volumes:
+            - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+            - /var/log:/var/log:ro
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        ports:
+            - '9080:9080'
+        command:
+            - -config.file=/etc/promtail/promtail-config.yml
+        depends_on:
+            - loki
 
 volumes:
     postgres_data:
