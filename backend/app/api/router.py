@@ -1,7 +1,7 @@
 """
 Main API router for the trading bot.
 
-This module will contain the main API endpoints for:
+This module contains the main API endpoints for:
 - Tweet data retrieval
 - Trade history and positions
 - Manual override controls
@@ -10,18 +10,20 @@ This module will contain the main API endpoints for:
 
 from fastapi import APIRouter
 from app.api.risk import router as risk_router
+from app.api.tweets import router as tweets_router
+from app.api.trades import router as trades_router
+from app.api.positions import router as positions_router
+from app.api.override import router as override_router
 
 # Create main API router
-api_router = APIRouter(prefix="/api/v1")
+api_router = APIRouter(prefix="/api")
 
-# Include risk management router
+# Include all endpoint routers
 api_router.include_router(risk_router)
-
-# Placeholder for future endpoint routers
-# These will be implemented in subsequent tasks:
-# - tweets router (task 8)
-# - trades router (task 8)
-# - positions router (task 8)
+api_router.include_router(tweets_router)
+api_router.include_router(trades_router)
+api_router.include_router(positions_router)
+api_router.include_router(override_router)
 
 
 @api_router.get("/status")
