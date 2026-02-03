@@ -1,110 +1,51 @@
-aiohappyeyeballs==2.6.1
-aiohttp==3.12.15
-aiosignal==1.4.0
-alembic==1.16.5
-amqp==5.3.1
-annotated-types==0.7.0
-anyio==4.10.0
-attrs==25.3.0
-billiard==4.2.1
-celery==5.5.3
-certifi==2025.8.3
-charset-normalizer==3.4.3
-click==8.2.1
-click-didyoumean==0.3.1
-click-plugins==1.1.1.2
-click-repl==0.3.0
-colorama==0.4.6
-dateparser==1.2.2
-dnspython==2.7.0
-email-validator==2.3.0
+# Web Framework & ASGI Server
 fastapi==0.116.1
-fastapi-cli==0.0.8
-fastapi-cloud-cli==0.1.5
-filelock==3.19.1
-flake8==7.3.0
-frozenlist==1.7.0
-fsspec==2025.7.0
-greenlet==3.2.4
-h11==0.16.0
-httpcore==1.0.9
-httptools==0.6.4
-httpx==0.28.1
-huggingface-hub==0.34.4
-idna==3.10
-iniconfig==2.1.0
-isort==6.0.1
-Jinja2==3.1.6
-joblib==1.5.2
-kombu==5.5.4
-Mako==1.3.10
-markdown-it-py==4.0.0
-MarkupSafe==3.0.2
-mccabe==0.7.0
-mdurl==0.1.2
-mpmath==1.3.0
-multidict==6.6.4
-networkx==3.5
-numpy==2.3.2
-oauthlib==3.3.1
-packaging==25.0
-pillow==11.3.0
-pluggy==1.6.0
-prometheus_client==0.22.1
-prompt_toolkit==3.0.52
-propcache==0.3.2
+uvicorn==0.35.0
+python-multipart==0.0.20
+
+# Database & ORM
+SQLAlchemy==2.0.43
+alembic==1.16.5
 psycopg2==2.9.10
-pycodestyle==2.14.0
-pycryptodome==3.23.0
+
+# Task Queue & Message Broker
+celery==5.5.3
+redis==5.2.1
+
+# HTTP Client
+httpx==0.28.1
+requests==2.32.5
+
+# Data Validation & Serialization
 pydantic==2.11.7
 pydantic-settings==2.10.1
-pydantic_core==2.33.2
-pyflakes==3.4.0
-Pygments==2.19.2
+
+# Machine Learning & NLP
+transformers==4.56.0
+torch==2.8.0
+numpy==2.3.2
+
+# Cryptocurrency & Trading
+python-binance==1.0.29
+
+# Social Media Integration
+tweepy==4.16.0
+
+# Monitoring & Observability
+prometheus_client==0.22.1
+structlog==25.4.0
+
+# Testing
 pytest==8.4.1
 pytest-asyncio==1.1.0
 pytest-mock==3.14.1
-python-binance==1.0.29
-python-dateutil==2.9.0.post0
+
+# Code Quality
+flake8==7.3.0
+isort==6.0.1
+
+# Configuration & Environment
 python-dotenv==1.1.1
-python-multipart==0.0.20
-pytz==2025.2
-PyYAML==6.0.2
-redis==5.2.1
-regex==2025.8.29
-requests==2.32.5
-requests-oauthlib==2.0.0
-rich==14.1.0
-rich-toolkit==0.15.0
-rignore==0.6.4
-safetensors==0.6.2
-scikit-learn==1.7.1
-scipy==1.16.1
-sentry-sdk==2.35.1
-setuptools==80.9.0
-shellingham==1.5.4
-six==1.17.0
-sniffio==1.3.1
-SQLAlchemy==2.0.43
-starlette==0.47.3
-structlog==25.4.0
-sympy==1.14.0
-threadpoolctl==3.6.0
-tokenizers==0.22.0
-torch==2.8.0
-torchvision==0.23.0
-tqdm==4.67.1
-transformers==4.56.0
-tweepy==4.16.0
-typer==0.17.3
-typing-inspection==0.4.1
-typing_extensions==4.15.0
-tzdata==2025.2
-tzlocal==5.3.1
-urllib3==2.5.0
-uvicorn==0.35.0
-vine==5.1.0
-watchfiles==1.1.0
-wcwidth==0.2.13
-websockets==15.0.1
-yarl==1.20.1
+
+# Note: Dependencies are automatically installed by pip
+# This file contains only the main packages we directly use
