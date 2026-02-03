@@ -18,6 +18,7 @@ class TradingConfig(BaseModel):
     take_profit_percent: float
     max_daily_drawdown: float
     max_open_positions: int
+    manual_override: bool = False
 
 
 class Settings(BaseSettings):
@@ -52,7 +53,16 @@ class Settings(BaseSettings):
     port: int
 
     # Trading configuration
-    trading: TradingConfig
+    trading: TradingConfig = TradingConfig(
+        signal_threshold=int(os.getenv("SIGNAL_THRESHOLD", "70")),
+        position_size_percent=float(
+            os.getenv("POSITION_SIZE_PERCENT", "0.01")),
+        stop_loss_percent=float(os.getenv("STOP_LOSS_PERCENT", "0.02")),
+        take_profit_percent=float(os.getenv("TAKE_PROFIT_PERCENT", "0.04")),
+        max_daily_drawdown=float(os.getenv("MAX_DAILY_DRAWDOWN", "0.05")),
+        max_open_positions=int(os.getenv("MAX_OPEN_POSITIONS", "5")),
+        manual_override=os.getenv("MANUAL_OVERRIDE", "false").lower() == "true"
+    )
 
     class Config:
         env_file = ".env"

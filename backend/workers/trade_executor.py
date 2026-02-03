@@ -11,6 +11,7 @@ from app.models.trade import Trade
 from app.models.position import Position
 from app.models.tweet import Tweet
 from app.clients.binance_client import BinanceClient
+from app.services.risk_manager import risk_manager
 from app.config import settings
 from app.utils.logging import get_logger
 
@@ -107,64 +108,9 @@ class TradeExecutor:
 
         return take_profit
 
-    def check_daily_drawdown(self, db: Session) -> bool:
-        """
-        Check if daily drawdown limit has been reached.
-
-        Args:
-            db: Database session
-
-        Returns:
-            True if trading is allowed, False if drawdown limit reached
-        """
-        today = datetime.utcnow().date()
-        daily_pnl = Trade.get_daily_pnl(
-            db, datetime.combine(today, datetime.min.time()))
-
-        # Get account balance to calculate drawdown percentage
-        account_balance = self.binance_client.get_balance('USDT')
-        if account_balance <= 0:
-            logger.warning("Zero account balance, halting trading")
-            return False
-
-        # Calculate drawdown percentage
-        drawdown_percent = abs(
-            daily_pnl) / account_balance if daily_pnl < 0 else Decimal('0')
-        max_drawdown = Decimal(str(self.config.max_daily_drawdown))
-
-        if drawdown_percent >= max_drawdown:
-            logger.warning(f"Daily drawdown limit reached",
-                           daily_pnl=str(daily_pnl),
-                           drawdown_percent=str(drawdown_percent),
-                           max_drawdown=str(max_drawdown))
-            return False
-
-        return True
-
-    def check_position_limits(self, db: Session) -> bool:
-        """
-        Check if maximum position limit has been reached.
-
-        Args:
-            db: Database session
-
-        Returns:
-            True if new positions can be opened, False otherwise
-        """
-        open_positions = Trade.count_open_positions(db)
-        max_positions = self.config.max_open_positions
-
-        if open_positions >= max_positions:
-            logger.warning(f"Maximum position limit reached",
-                           open_positions=open_positions,
-                           max_positions=max_positions)
-            return False
-
-        return True
-
     def execute_trade_signal(self, db: Session, tweet_id: int, symbol: str, side: str) -> Optional[Trade]:
         """
-        Execute a trade based on signal.
+        Execute a trade based on signal with risk management validation.
 
         Args:
             db: Database session
@@ -173,18 +119,9 @@ class TradeExecutor:
             side: Trade side ('LONG' or 'SHORT')
 
         Returns:
-            Created trade or None if failed
+            Created trade or None if failed/rejected
         """
         try:
-            # Check risk management rules
-            if not self.check_daily_drawdown(db):
-                logger.warning("Trade rejected due to daily drawdown limit")
-                return None
-
-            if not self.check_position_limits(db):
-                logger.warning("Trade rejected due to position limit")
-                return None
-
             # Get current market price
             current_price = self.binance_client.get_ticker_price(symbol)
             if not current_price:
@@ -204,6 +141,90 @@ class TradeExecutor:
                 logger.error("Invalid position size calculated")
                 return None
 
+            # Validate trade request with risk management
+            validation = risk_manager.validate_trade_request(
+                db, symbol, side, quantity)
+
+            if not validation["allowed"]:
+                logger.warning("Trade rejected by risk management",
+                               reasons=validation["reasons"],
+                               checks=validation["checks"])
+                return None
+
+            # If manual override is enabled, add to pending trades
+            if validation.get("requires_approval", False):
+                # Get tweet for signal score
+                tweet = db.query(Tweet).filter(Tweet.id == tweet_id).first()
+                signal_score = tweet.signal_score if tweet else 0
+
+                pending_id = risk_manager.add_pending_trade(
+                    tweet_id, symbol, side, quantity, signal_score)
+                logger.info(f"Trade added to pending approval queue",
+                            pending_id=pending_id)
+                return None  # Trade not executed, awaiting approval
+
+            # Execute the trade
+            return self._execute_trade_internal(db, tweet_id, symbol, side, quantity, current_price)
+
+        except Exception as e:
+            logger.error(f"Error executing trade", error=str(e))
+            db.rollback()
+            return None
+
+    def execute_approved_trade(self, db: Session, pending_trade_id: str) -> Optional[Trade]:
+        """
+        Execute a previously approved trade.
+
+        Args:
+            db: Database session
+            pending_trade_id: ID of approved pending trade
+
+        Returns:
+            Created trade or None if failed
+        """
+        try:
+            # Get approved trade details
+            approved_trade = risk_manager.approve_trade(pending_trade_id)
+            if not approved_trade:
+                logger.error(f"Approved trade not found",
+                             trade_id=pending_trade_id)
+                return None
+
+            # Get current market price (price may have changed since approval)
+            current_price = self.binance_client.get_ticker_price(
+                approved_trade["symbol"])
+            if not current_price:
+                logger.error(
+                    f"Failed to get current price for {approved_trade['symbol']}")
+                return None
+
+            # Execute the trade
+            quantity = Decimal(str(approved_trade["quantity"]))
+            return self._execute_trade_internal(
+                db, approved_trade["tweet_id"], approved_trade["symbol"],
+                approved_trade["side"], quantity, current_price)
+
+        except Exception as e:
+            logger.error(f"Error executing approved trade", error=str(e))
+            return None
+
+    def _execute_trade_internal(self, db: Session, tweet_id: int, symbol: str, side: str,
+                                quantity: Decimal, current_price: Decimal) -> Optional[Trade]:
+        """
+        Internal method to execute a trade after validation.
+
+        Args:
+            db: Database session
+            tweet_id: ID of tweet that generated the signal
+            symbol: Trading pair symbol
+            side: Trade side ('LONG' or 'SHORT')
+            quantity: Trade quantity
+            current_price: Current market price
+
+        Returns:
+            Created trade or None if failed
+        """
+        try:
             # Calculate stop-loss and take-profit prices
             stop_loss_price = self.calculate_stop_loss_price(
                 current_price, side)
@@ -246,7 +267,7 @@ class TradeExecutor:
             return trade
 
         except Exception as e:
-            logger.error(f"Error executing trade", error=str(e))
+            logger.error(f"Error in internal trade execution", error=str(e))
             db.rollback()
             return None
 
@@ -556,3 +577,15 @@ def update_position_pnl(self):
     finally:
         if 'db' in locals():
             db.close()
+
+
+@celery_app.task(bind=True, max_retries=3)
+def cleanup_pending_trades(self):
+    """Clean up old pending trades (runs daily)."""
+    try:
+        cleaned_count = risk_manager.cleanup_old_pending_trades(hours=24)
+        logger.info(f"Pending trades cleanup completed", cleaned=cleaned_count)
+        return {"cleaned": cleaned_count}
+    except Exception as e:
+        logger.error(f"Error in cleanup_pending_trades task", error=str(e))
+        raise self.retry(exc=e, countdown=300)  # Retry after 5 minutes
