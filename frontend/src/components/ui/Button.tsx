@@ -1,10 +1,5 @@
-import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
-
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'primary' | 'secondary' | 'danger';
-    size?: 'sm' | 'md' | 'lg';
-}
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
@@ -23,13 +18,13 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                         'h-10 px-4 text-sm': size === 'md',
                         'h-12 px-6 text-base': size === 'lg',
                     },
-                    className
+                    className,
                 )}
                 ref={ref}
                 {...props}
             />
         );
-    }
+    },
 );
 
 Button.displayName = 'Button';

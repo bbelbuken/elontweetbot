@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-
-interface MetricsOverviewProps {
-    className?: string;
-}
+import { formatCurrency, getPnlColor } from '@/lib/utils';
 
 export function MetricsOverview({ className = '' }: MetricsOverviewProps) {
     const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
@@ -40,25 +37,10 @@ export function MetricsOverview({ className = '' }: MetricsOverviewProps) {
         }
     };
 
-    const getPnlColor = (pnl: number) => {
-        if (pnl > 0) return 'text-green-600';
-        if (pnl < 0) return 'text-red-600';
-        return 'text-gray-600';
-    };
-
     const getStatusColor = (status: string) => {
         return status === 'healthy'
             ? 'text-green-600 bg-green-100'
             : 'text-red-600 bg-red-100';
-    };
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(amount);
     };
 
     if (loading) {

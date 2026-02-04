@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-
-interface TradeHistoryProps {
-    className?: string;
-    limit?: number;
-}
+import { formatCurrency, formatDate, getPnlColor } from '@/lib/utils';
 
 export function TradeHistory({
     className = '',
@@ -34,13 +30,6 @@ export function TradeHistory({
         }
     };
 
-    const getPnlColor = (pnl: number | undefined) => {
-        if (!pnl) return 'text-gray-600';
-        if (pnl > 0) return 'text-green-600';
-        if (pnl < 0) return 'text-red-600';
-        return 'text-gray-600';
-    };
-
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'OPEN':
@@ -56,21 +45,6 @@ export function TradeHistory({
 
     const getSideColor = (side: string) => {
         return side === 'LONG' ? 'text-green-600' : 'text-red-600';
-    };
-
-    const formatCurrency = (amount: number | undefined) => {
-        if (!amount) return 'N/A';
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(amount);
-    };
-
-    const formatDate = (dateString: string | undefined) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleString();
     };
 
     if (loading) {
@@ -176,7 +150,9 @@ export function TradeHistory({
                                         {trade.quantity.toFixed(8)}
                                     </td>
                                     <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
-                                        {formatCurrency(trade.entry_price)}
+                                        {trade.entry_price
+                                            ? formatCurrency(trade.entry_price)
+                                            : 'N/A'}
                                     </td>
                                     <td className='px-6 py-4 whitespace-nowrap'>
                                         <span
@@ -189,13 +165,17 @@ export function TradeHistory({
                                     </td>
                                     <td className='px-6 py-4 whitespace-nowrap text-sm'>
                                         <span
-                                            className={`font-medium ${getPnlColor(trade.pnl)}`}
+                                            className={`font-medium ${getPnlColor(trade.pnl || 0)}`}
                                         >
-                                            {formatCurrency(trade.pnl)}
+                                            {trade.pnl
+                                                ? formatCurrency(trade.pnl)
+                                                : 'N/A'}
                                         </span>
                                     </td>
                                     <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                                        {formatDate(trade.created_at)}
+                                        {trade.created_at
+                                            ? formatDate(trade.created_at)
+                                            : 'N/A'}
                                     </td>
                                 </tr>
                             ))}

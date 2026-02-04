@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-
-interface PositionsOverviewProps {
-    className?: string;
-}
+import { formatCurrency, formatDate, getPnlColor } from '@/lib/utils';
 
 export function PositionsOverview({ className = '' }: PositionsOverviewProps) {
     const [positions, setPositions] = useState<Position[]>([]);
@@ -28,25 +25,6 @@ export function PositionsOverview({ className = '' }: PositionsOverviewProps) {
         } finally {
             setLoading(false);
         }
-    };
-
-    const getPnlColor = (pnl: number) => {
-        if (pnl > 0) return 'text-green-600';
-        if (pnl < 0) return 'text-red-600';
-        return 'text-gray-600';
-    };
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(amount);
-    };
-
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString();
     };
 
     const totalUnrealizedPnl = positions.reduce(

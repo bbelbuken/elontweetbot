@@ -1,5 +1,9 @@
 // Global type definitions for the Tweet Crypto Trading Bot
 
+// =============================================================================
+// CORE DATA MODELS - Used across backend API and database
+// =============================================================================
+
 interface Tweet {
     id: number;
     author: string;
@@ -55,6 +59,10 @@ interface HealthCheck {
     };
 }
 
+// =============================================================================
+// API COMMUNICATION - Used in lib/api.ts
+// =============================================================================
+
 interface ApiResponse<T> {
     data: T;
     success: boolean;
@@ -71,4 +79,56 @@ interface DashboardData {
     current_positions: Position[];
     recent_trades: Trade[];
     metrics: SystemMetrics;
+}
+
+// =============================================================================
+// COMPONENT PROPS - Used in React components
+// =============================================================================
+
+// TweetFeed.tsx component props
+interface TweetFeedProps {
+    className?: string;
+}
+
+// PositionsOverview.tsx component props
+interface PositionsOverviewProps {
+    className?: string;
+}
+
+// MetricsOverview.tsx component props
+interface MetricsOverviewProps {
+    className?: string;
+}
+
+// TradeHistory.tsx component props
+interface TradeHistoryProps {
+    className?: string;
+    limit?: number;
+}
+
+// =============================================================================
+// UI COMPONENTS - Used in ui/ components
+// =============================================================================
+
+// Button.tsx component props
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    variant?: 'primary' | 'secondary' | 'danger';
+    size?: 'sm' | 'md' | 'lg';
+}
+
+// LoadingSpinner.tsx component props
+interface LoadingSpinnerProps {
+    size?: 'sm' | 'md' | 'lg';
+    className?: string;
+}
+
+// ErrorBoundary.tsx component props
+interface ErrorBoundaryProps {
+    children: React.ReactNode;
+    fallback?: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+    hasError: boolean;
+    error?: Error;
 }

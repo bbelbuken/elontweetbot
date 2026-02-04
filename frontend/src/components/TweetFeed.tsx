@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-
-interface TweetFeedProps {
-    className?: string;
-}
+import {
+    formatDate,
+    getSignalScoreColor,
+    getSentimentColor,
+} from '@/lib/utils';
 
 export function TweetFeed({ className = '' }: TweetFeedProps) {
     const [tweets, setTweets] = useState<TweetWithSignal[]>([]);
@@ -28,23 +29,6 @@ export function TweetFeed({ className = '' }: TweetFeedProps) {
         } finally {
             setLoading(false);
         }
-    };
-
-    const getSignalColor = (score: number) => {
-        if (score >= 80) return 'text-green-600 bg-green-50';
-        if (score >= 60) return 'text-yellow-600 bg-yellow-50';
-        if (score >= 40) return 'text-orange-600 bg-orange-50';
-        return 'text-red-600 bg-red-50';
-    };
-
-    const getSentimentColor = (score: number) => {
-        if (score > 0.1) return 'text-green-600';
-        if (score < -0.1) return 'text-red-600';
-        return 'text-gray-600';
-    };
-
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString();
     };
 
     if (loading) {
@@ -124,7 +108,7 @@ export function TweetFeed({ className = '' }: TweetFeedProps) {
                                     </div>
                                     <div className='flex items-center space-x-2'>
                                         <span
-                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSignalColor(
+                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSignalScoreColor(
                                                 tweet.signal_score,
                                             )}`}
                                         >
