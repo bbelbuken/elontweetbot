@@ -1,0 +1,25 @@
+{
+    "name": "CryptoBot Dashboard",
+    "short_name": "CryptoBot",
+    "description": "AI-powered cryptocurrency trading bot dashboard",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#1E40AF",
+    "theme_color": "#1E40AF",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "finance",
+        "productivity",
+        "utilities"
+    ],
+    "lang": "en",
+    "dir": "ltr"
+}

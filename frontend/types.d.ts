@@ -106,6 +106,32 @@ interface TradeHistoryProps {
     limit?: number;
 }
 
+// PnLChart.tsx component props
+interface PnLChartProps {
+    className?: string;
+    timeRange?: '24h' | '7d' | '30d' | '90d';
+}
+
+// PnL data structure for charts
+interface PnLDataPoint {
+    timestamp: string;
+    cumulative_pnl: number;
+    daily_pnl: number;
+    trade_count: number;
+    date: string;
+}
+
+// =============================================================================
+// HOOKS - Used in custom hooks
+// =============================================================================
+
+// useRealTimeData hook options
+interface UseRealTimeDataOptions<T> {
+    fetchFunction: () => Promise<T>;
+    interval?: number;
+    enabled?: boolean;
+}
+
 // =============================================================================
 // UI COMPONENTS - Used in ui/ components
 // =============================================================================
