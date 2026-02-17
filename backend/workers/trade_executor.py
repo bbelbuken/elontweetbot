@@ -14,6 +14,7 @@ from app.clients.binance_client import BinanceClient
 from app.services.risk_manager import risk_manager
 from app.config import settings
 from app.utils.logging import get_logger
+from app.monitoring.metrics import trades_executed, pnl_gauge, worker_task_duration
 
 logger = get_logger(__name__)
 
@@ -260,6 +261,9 @@ class TradeExecutor:
             # Update position
             self.update_position(db, symbol, side, quantity, current_price)
 
+            # Update metrics
+            trades_executed.labels(symbol=symbol, side=side).inc()
+
             logger.info(f"Trade executed successfully",
                         trade_id=trade.id, symbol=symbol, side=side,
                         quantity=str(quantity), entry_price=str(current_price))
@@ -395,9 +399,10 @@ class TradeExecutor:
 @celery_app.task(bind=True, max_retries=3)
 def process_trading_signals(self):
     """Process high-score trading signals and execute trades."""
-    try:
-        db = next(get_db())
-        executor = TradeExecutor()
+    with worker_task_duration.labels(task_name='process_trading_signals').time():
+        try:
+            db = next(get_db())
+            executor = TradeExecutor()
 
         # Get unprocessed tweets with high signal scores
         high_score_tweets = (
@@ -459,9 +464,10 @@ def process_trading_signals(self):
 @celery_app.task(bind=True, max_retries=3)
 def monitor_open_positions(self):
     """Monitor open positions for stop-loss and take-profit triggers."""
-    try:
-        db = next(get_db())
-        executor = TradeExecutor()
+    with worker_task_duration.labels(task_name='monitor_open_positions').time():
+        try:
+            db = next(get_db())
+            executor = TradeExecutor()
 
         # Get all open trades
         open_trades = Trade.get_open_trades(db)
@@ -534,49 +540,60 @@ def monitor_open_positions(self):
 @celery_app.task(bind=True, max_retries=3)
 def update_position_pnl(self):
     """Update unrealized PnL for all open positions."""
-    try:
-        db = next(get_db())
-        binance_client = BinanceClient()
+    with worker_task_duration.labels(task_name='update_position_pnl').time():
+        try:
+            db = next(get_db())
+            binance_client = BinanceClient()
 
-        # Get all positions
-        positions = Position.get_all_positions(db)
+            # Get all positions
+            positions = Position.get_all_positions(db)
 
-        if not positions:
-            logger.info("No positions to update")
-            return {"updated": 0}
+            if not positions:
+                logger.info("No positions to update")
+                pnl_gauge.set(0)
+                return {"updated": 0}
 
-        updated_count = 0
+            updated_count = 0
+            total_pnl = Decimal('0')
 
-        for position in positions:
-            try:
-                # Get current market price
-                current_price = binance_client.get_ticker_price(
-                    position.symbol)
-                if not current_price:
-                    logger.warning(
-                        f"Failed to get price for {position.symbol}")
+            for position in positions:
+                try:
+                    # Get current market price
+                    current_price = binance_client.get_ticker_price(
+                        position.symbol)
+                    if not current_price:
+                        logger.warning(
+                            f"Failed to get price for {position.symbol}")
+                        continue
+
+                    # Update unrealized PnL
+                    Position.update_pnl_for_symbol(
+                        db, position.symbol, current_price)
+                    
+                    # Calculate total PnL
+                    if position.unrealized_pnl:
+                        total_pnl += Decimal(str(position.unrealized_pnl))
+                    
+                    updated_count += 1
+
+                except Exception as e:
+                    logger.error(
+                        f"Error updating PnL for {position.symbol}", error=str(e))
                     continue
 
-                # Update unrealized PnL
-                Position.update_pnl_for_symbol(
-                    db, position.symbol, current_price)
-                updated_count += 1
+            # Update PnL gauge metric
+            pnl_gauge.set(float(total_pnl))
 
-            except Exception as e:
-                logger.error(
-                    f"Error updating PnL for {position.symbol}", error=str(e))
-                continue
+            logger.info(f"Position PnL update completed", updated=updated_count, total_pnl=str(total_pnl))
 
-        logger.info(f"Position PnL update completed", updated=updated_count)
+            return {"updated": updated_count, "total_pnl": str(total_pnl)}
 
-        return {"updated": updated_count}
-
-    except Exception as e:
-        logger.error(f"Error in update_position_pnl task", error=str(e))
-        raise self.retry(exc=e, countdown=60)
-    finally:
-        if 'db' in locals():
-            db.close()
+        except Exception as e:
+            logger.error(f"Error in update_position_pnl task", error=str(e))
+            raise self.retry(exc=e, countdown=60)
+        finally:
+            if 'db' in locals():
+                db.close()
 
 
 @celery_app.task(bind=True, max_retries=3)

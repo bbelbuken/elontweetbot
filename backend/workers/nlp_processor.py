@@ -13,6 +13,7 @@ import torch
 from workers.celery_app import celery_app
 from app.database import get_db
 from app.models.tweet import Tweet
+from app.monitoring.metrics import tweets_processed, worker_task_duration
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -310,65 +311,69 @@ def process_unprocessed_tweets(self: Task, limit: int = 50) -> Dict[str, any]:
     Returns:
         Dictionary with processing results
     """
-    db = next(get_db())
+    with worker_task_duration.labels(task_name='process_unprocessed_tweets').time():
+        db = next(get_db())
 
-    try:
-        # Get unprocessed tweets
-        unprocessed_tweets = Tweet.get_unprocessed(db, limit=limit)
+        try:
+            # Get unprocessed tweets
+            unprocessed_tweets = Tweet.get_unprocessed(db, limit=limit)
 
-        if not unprocessed_tweets:
-            logger.info("No unprocessed tweets found")
-            return {"message": "No unprocessed tweets", "processed_count": 0}
+            if not unprocessed_tweets:
+                logger.info("No unprocessed tweets found")
+                return {"message": "No unprocessed tweets", "processed_count": 0}
 
-        logger.info(f"Processing {len(unprocessed_tweets)} unprocessed tweets")
+            logger.info(f"Processing {len(unprocessed_tweets)} unprocessed tweets")
 
-        processed_count = 0
-        high_signal_count = 0
-        errors = []
+            processed_count = 0
+            high_signal_count = 0
+            errors = []
 
-        # Process each tweet
-        for tweet in unprocessed_tweets:
-            try:
-                # Analyze tweet
-                result = analyze_tweet_sentiment.apply(args=[tweet.id]).get()
+            # Process each tweet
+            for tweet in unprocessed_tweets:
+                try:
+                    # Analyze tweet
+                    result = analyze_tweet_sentiment.apply(args=[tweet.id]).get()
 
-                if "error" not in result:
-                    processed_count += 1
-                    if result.get("signal_score", 0) >= 70:
-                        high_signal_count += 1
-                        logger.info(f"High signal tweet detected: {tweet.id} "
-                                    f"(score: {result['signal_score']})")
-                else:
-                    errors.append(f"Tweet {tweet.id}: {result['error']}")
+                    if "error" not in result:
+                        processed_count += 1
+                        if result.get("signal_score", 0) >= 70:
+                            high_signal_count += 1
+                            logger.info(f"High signal tweet detected: {tweet.id} "
+                                        f"(score: {result['signal_score']})")
+                    else:
+                        errors.append(f"Tweet {tweet.id}: {result['error']}")
 
-            except Exception as e:
-                error_msg = f"Tweet {tweet.id}: {str(e)}"
-                errors.append(error_msg)
-                logger.error(f"Error processing tweet {tweet.id}: {e}")
+                except Exception as e:
+                    error_msg = f"Tweet {tweet.id}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(f"Error processing tweet {tweet.id}: {e}")
 
-        logger.info(f"Batch processing complete: {processed_count}/{len(unprocessed_tweets)} "
-                    f"processed, {high_signal_count} high signals")
+            # Update metrics
+            tweets_processed.inc(processed_count)
 
-        return {
-            "total_tweets": len(unprocessed_tweets),
-            "processed_count": processed_count,
-            "high_signal_count": high_signal_count,
-            "errors": errors
-        }
+            logger.info(f"Batch processing complete: {processed_count}/{len(unprocessed_tweets)} "
+                        f"processed, {high_signal_count} high signals")
 
-    except Exception as exc:
-        logger.error(f"Error in batch processing: {exc}")
+            return {
+                "total_tweets": len(unprocessed_tweets),
+                "processed_count": processed_count,
+                "high_signal_count": high_signal_count,
+                "errors": errors
+            }
 
-        # Retry with exponential backoff
-        if self.request.retries < self.max_retries:
-            retry_delay = 2 ** self.request.retries
-            logger.info(f"Retrying batch processing in {retry_delay} seconds")
-            raise self.retry(exc=exc, countdown=retry_delay)
+        except Exception as exc:
+            logger.error(f"Error in batch processing: {exc}")
 
-        return {"error": str(exc)}
+            # Retry with exponential backoff
+            if self.request.retries < self.max_retries:
+                retry_delay = 2 ** self.request.retries
+                logger.info(f"Retrying batch processing in {retry_delay} seconds")
+                raise self.retry(exc=exc, countdown=retry_delay)
 
-    finally:
-        db.close()
+            return {"error": str(exc)}
+
+        finally:
+            db.close()
 
 
 @celery_app.task

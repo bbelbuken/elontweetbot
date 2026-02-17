@@ -9,6 +9,7 @@ from app.clients.twitter_client import TwitterClient
 from app.database import get_db_session
 from app.models.tweet import Tweet
 from app.utils.logging import get_logger
+from app.monitoring.metrics import tweets_processed, worker_task_duration
 
 logger = get_logger(__name__)
 
@@ -21,62 +22,66 @@ def poll_twitter_api(self):
     This task runs 3 times daily (8 AM, 2 PM, 8 PM) to stay within 
     the free API plan limit of 100 reads per month.
     """
-    try:
-        logger.info("Starting Twitter API polling")
+    with worker_task_duration.labels(task_name='poll_twitter_api').time():
+        try:
+            logger.info("Starting Twitter API polling")
 
-        # Initialize Twitter client
-        twitter_client = TwitterClient()
+            # Initialize Twitter client
+            twitter_client = TwitterClient()
 
-        # Search for Elon Musk related tweets - maximize results for free API plan
-        tweets = twitter_client.search_recent_tweets(
-            query="elonmusk OR @elonmusk OR \"Elon Musk\" -is:retweet lang:en",
-            max_results=100  # Maximum allowed per request
-        )
+            # Search for Elon Musk related tweets - maximize results for free API plan
+            tweets = twitter_client.search_recent_tweets(
+                query="elonmusk OR @elonmusk OR \"Elon Musk\" -is:retweet lang:en",
+                max_results=100  # Maximum allowed per request
+            )
 
-        # Filter for tweets from Elon Musk specifically (his user ID: 44196397)
-        elon_user_id = "44196397"  # Elon Musk's Twitter user ID
-        elon_tweets = [tweet for tweet in tweets if tweet.get(
-            "author_id") == elon_user_id]
+            # Filter for tweets from Elon Musk specifically (his user ID: 44196397)
+            elon_user_id = "44196397"  # Elon Musk's Twitter user ID
+            elon_tweets = [tweet for tweet in tweets if tweet.get(
+                "author_id") == elon_user_id]
 
-        logger.info("Filtered tweets from Elon Musk",
-                    total_tweets=len(tweets), elon_tweets=len(elon_tweets))
+            logger.info("Filtered tweets from Elon Musk",
+                        total_tweets=len(tweets), elon_tweets=len(elon_tweets))
 
-        if not tweets:
-            logger.info("No new tweets found")
-            return {"status": "success", "tweets_processed": 0}
+            if not tweets:
+                logger.info("No new tweets found")
+                return {"status": "success", "tweets_processed": 0}
 
-        # Use only Elon's tweets if any found, otherwise use all tweets
-        tweets_to_process = elon_tweets if elon_tweets else tweets
+            # Use only Elon's tweets if any found, otherwise use all tweets
+            tweets_to_process = elon_tweets if elon_tweets else tweets
 
-        logger.info("Processing tweets",
-                    total_found=len(tweets),
-                    elon_only=len(elon_tweets),
-                    processing=len(tweets_to_process))
+            logger.info("Processing tweets",
+                        total_found=len(tweets),
+                        elon_only=len(elon_tweets),
+                        processing=len(tweets_to_process))
 
-        # Process tweets in batch
-        processed_count = 0
-        for tweet_data in tweets_to_process:
-            try:
-                if store_tweet(tweet_data):
-                    processed_count += 1
-            except Exception as e:
-                logger.error("Error processing individual tweet",
-                             tweet_id=tweet_data.get("id"), error=str(e))
-                continue
+            # Process tweets in batch
+            processed_count = 0
+            for tweet_data in tweets_to_process:
+                try:
+                    if store_tweet(tweet_data):
+                        processed_count += 1
+                except Exception as e:
+                    logger.error("Error processing individual tweet",
+                                 tweet_id=tweet_data.get("id"), error=str(e))
+                    continue
 
-        logger.info("Twitter API polling completed",
-                    total_tweets=len(tweets), processed=processed_count)
+            # Update metrics
+            tweets_processed.inc(processed_count)
 
-        return {
-            "status": "success",
-            "tweets_found": len(tweets),
-            "tweets_processed": processed_count
-        }
+            logger.info("Twitter API polling completed",
+                        total_tweets=len(tweets), processed=processed_count)
 
-    except Exception as exc:
-        logger.error("Twitter API polling failed", error=str(exc))
-        # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
+            return {
+                "status": "success",
+                "tweets_found": len(tweets),
+                "tweets_processed": processed_count
+            }
+
+        except Exception as exc:
+            logger.error("Twitter API polling failed", error=str(exc))
+            # Retry with exponential backoff
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries)
 
 
 def store_tweet(tweet_data: Dict) -> bool:
