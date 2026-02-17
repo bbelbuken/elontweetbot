@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 from datetime import datetime, timezone
 
 from app.utils.logging import get_logger
+from app.utils.retry import retry_with_backoff
 from app.config import settings
 
 logger = get_logger(__name__)
@@ -44,6 +45,7 @@ class TwitterClient:
 
         self.last_request_time = time.time()
 
+    @retry_with_backoff(max_retries=2, base_delay=5.0, exceptions=(tweepy.TwitterServerError, Exception))
     def search_recent_tweets(
         self,
         query: str = "elonmusk OR @elonmusk OR \"Elon Musk\" -is:retweet lang:en",
@@ -93,18 +95,20 @@ class TwitterClient:
             return tweets
 
         except tweepy.TooManyRequests as e:
+            # Don't retry on rate limits - fail immediately
             logger.error("Twitter API rate limit exceeded", error=str(e))
             print(f"❌ RATE LIMIT: {e}")
             print(
                 f"Response headers: {e.response.headers if hasattr(e, 'response') else 'No headers'}")
             return []
         except tweepy.Unauthorized as e:
+            # Don't retry on auth errors - fail immediately
             logger.error("Twitter API unauthorized", error=str(e))
             return []
         except Exception as e:
             logger.error(
                 "Error fetching tweets from Twitter API", error=str(e))
-            return []
+            raise  # Let retry decorator handle it
 
     def get_user_info(self, user_id: str) -> Optional[Dict]:
         """

@@ -13,6 +13,7 @@ celery_app = Celery(
         "workers.tweet_ingestion",
         "workers.nlp_processor",
         "workers.trade_executor",
+        "workers.failed_task_handler",  # Import for signal handlers
     ]
 )
 
@@ -31,6 +32,15 @@ celery_app.conf.update(
     worker_disable_rate_limits=False,
     task_default_retry_delay=60,  # 1 minute
     task_max_retries=3,
+    
+    # Dead letter queue configuration
+    # Failed tasks after all retries will be routed to this queue
+    task_reject_on_worker_lost=True,
+    task_routes={
+        '*': {'queue': 'default'},
+        'workers.tweet_ingestion.poll_twitter_api': {'queue': 'twitter'},
+        'workers.trade_executor.process_trading_signals': {'queue': 'trading'},
+    },
 )
 
 # Beat schedule for periodic tasks - 3 times daily for free API plan (100 reads/month)

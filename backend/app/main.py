@@ -8,10 +8,11 @@ This module sets up the FastAPI server with:
 - Basic application configuration
 """
 
+import uuid
 from contextlib import asynccontextmanager
 from typing import Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -19,7 +20,7 @@ from app.api.router import api_router
 from app.api.health import health_router
 from app.api.metrics import metrics_router
 from app.config import settings
-from app.utils.logging import configure_logging, get_logger
+from app.utils.logging import configure_logging, get_logger, set_log_context, clear_log_context
 from app.monitoring.metrics import initialize_health_metrics
 
 # Configure logging
@@ -61,6 +62,30 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# Request context middleware for logging
+@app.middleware("http")
+async def add_request_context(request: Request, call_next):
+    """Add request context to all log messages within this request."""
+    request_id = str(uuid.uuid4())
+    
+    # Set context for this request
+    set_log_context(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+    )
+    
+    logger.info("Request started")
+    
+    try:
+        response = await call_next(request)
+        logger.info("Request completed", status_code=response.status_code)
+        return response
+    finally:
+        # Clear context after request
+        clear_log_context()
 
 # Include routers
 app.include_router(api_router)

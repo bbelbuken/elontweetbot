@@ -9,6 +9,7 @@ from decimal import Decimal
 from urllib.parse import urlencode
 
 from app.utils.logging import get_logger
+from app.utils.retry import retry_with_backoff
 from app.config import settings
 
 logger = get_logger(__name__)
@@ -37,6 +38,12 @@ class BinanceClient:
             hashlib.sha256
         ).hexdigest()
 
+    @retry_with_backoff(
+        max_retries=3,
+        base_delay=2.0,
+        exceptions=(requests.exceptions.Timeout,
+                    requests.exceptions.ConnectionError)
+    )
     def _make_request(self, method: str, endpoint: str, params: Dict = None, signed: bool = False) -> Optional[Dict]:
         """Make authenticated request to Binance API."""
         if params is None:
@@ -50,19 +57,29 @@ class BinanceClient:
 
         try:
             if method.upper() == 'GET':
-                response = self.session.get(url, params=params)
+                response = self.session.get(url, params=params, timeout=10)
             elif method.upper() == 'POST':
-                response = self.session.post(url, params=params)
+                response = self.session.post(url, params=params, timeout=10)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
             response.raise_for_status()
             return response.json()
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Binance API request failed",
-                         method=method, endpoint=endpoint, error=str(e))
-            return None
+        except requests.exceptions.HTTPError as e:
+            # Don't retry on 4xx client errors
+            if e.response.status_code < 500:
+                logger.error(f"Binance API client error",
+                             method=method, endpoint=endpoint,
+                             status_code=e.response.status_code, error=str(e))
+                return None
+            raise  # Let retry handle 5xx errors
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            logger.warning(f"Binance API network error, will retry",
+                           method=method, endpoint=endpoint, error=str(e))
+            raise  # Let retry decorator handle it
+
         except Exception as e:
             logger.error(f"Unexpected error in Binance API request",
                          method=method, endpoint=endpoint, error=str(e))
